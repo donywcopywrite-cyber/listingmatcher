@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: chatkit-app
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_CHATKIT_WORKFLOW_ID
+        sync: false
+      - key: CHATKIT_API_BASE
+        sync: false
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
