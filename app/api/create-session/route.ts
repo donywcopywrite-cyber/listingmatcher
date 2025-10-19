@@ -24,16 +24,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   let sessionCookie: string | null = null;
   try {
-    const credentialResult = resolveOpenAICredentials();
 
-    if (!credentialResult.ok) {
-      if (process.env.NODE_ENV !== "production") {
-        console.error("[create-session] credential resolution failed", {
-          reason: credentialResult.error.reason,
-          message: credentialResult.error.message,
-        });
-      }
-      return buildJsonResponse(
         {
           error: credentialResult.error.message,
           reason: credentialResult.error.reason,
@@ -44,27 +35,7 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
-    const {
-      apiKey: openaiApiKey,
-      projectId: openaiProjectId,
-      warnings: credentialWarnings,
-    } = credentialResult.value;
 
-    if (
-      credentialWarnings.length > 0 &&
-      process.env.NODE_ENV !== "production"
-    ) {
-      for (const warning of credentialWarnings) {
-        if (warning.context) {
-          console.warn(
-            "[create-session] %s",
-            warning.message,
-            warning.context
-          );
-          continue;
-        }
-        console.warn("[create-session] %s", warning.message);
-      }
     }
 
     const parsedBody = await safeParseJson<CreateSessionRequestBody>(request);
@@ -253,6 +224,10 @@ function buildJsonResponse(
     status,
     headers: responseHeaders,
   });
+}
+
+function looksLikeDomainKey(value: string): boolean {
+  return value.startsWith("domain_pk_") || value.startsWith("domain_sk_");
 }
 
 async function safeParseJson<T>(req: Request): Promise<T | null> {
