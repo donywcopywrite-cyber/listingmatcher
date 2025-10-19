@@ -27,8 +27,17 @@ export async function POST(request: Request): Promise<Response> {
     const credentialResult = resolveOpenAICredentials();
 
     if (!credentialResult.ok) {
+      if (process.env.NODE_ENV !== "production") {
+        console.error("[create-session] credential resolution failed", {
+          reason: credentialResult.error.reason,
+          message: credentialResult.error.message,
+        });
+      }
       return buildJsonResponse(
-        { error: credentialResult.error.message },
+        {
+          error: credentialResult.error.message,
+          reason: credentialResult.error.reason,
+        },
         credentialResult.error.status,
         { "Content-Type": "application/json" },
         null
@@ -47,10 +56,14 @@ export async function POST(request: Request): Promise<Response> {
     ) {
       for (const warning of credentialWarnings) {
         if (warning.context) {
-          console.warn(warning.message, warning.context);
+          console.warn(
+            "[create-session] %s",
+            warning.message,
+            warning.context
+          );
           continue;
         }
-        console.warn(warning.message);
+        console.warn("[create-session] %s", warning.message);
       }
     }
 
