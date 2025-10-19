@@ -23,7 +23,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   let sessionCookie: string | null = null;
   try {
-    const openaiApiKey = process.env.OPENAI_API_KEY;
+    const openaiApiKey = process.env.OPENAI_API_KEY?.trim();
     if (!openaiApiKey) {
       return new Response(
         JSON.stringify({
@@ -33,6 +33,32 @@ export async function POST(request: Request): Promise<Response> {
           status: 500,
           headers: { "Content-Type": "application/json" },
         }
+      );
+    }
+
+    if (looksLikeDomainKey(openaiApiKey)) {
+      return buildJsonResponse(
+        {
+          error:
+            "OPENAI_API_KEY is set to a domain allowlist key. Configure a server-side API key (starts with sk- or sk-proj-) instead.",
+        },
+        400,
+        { "Content-Type": "application/json" },
+        null
+      );
+    }
+
+    const openaiProjectId = process.env.OPENAI_PROJECT_ID?.trim();
+
+    if (looksLikeProjectScopedKey(openaiApiKey) && !openaiProjectId) {
+      return buildJsonResponse(
+        {
+          error:
+            "OPENAI_API_KEY is project-scoped. Set OPENAI_PROJECT_ID to the corresponding project identifier to authenticate.",
+        },
+        500,
+        { "Content-Type": "application/json" },
+        null
       );
     }
 
@@ -67,6 +93,7 @@ export async function POST(request: Request): Promise<Response> {
         "Content-Type": "application/json",
         Authorization: `Bearer ${openaiApiKey}`,
         "OpenAI-Beta": "chatkit_beta=v1",
+        ...(openaiProjectId ? { "OpenAI-Project": openaiProjectId } : {}),
       },
       body: JSON.stringify({
         workflow: { id: resolvedWorkflowId },
@@ -221,6 +248,14 @@ function buildJsonResponse(
     status,
     headers: responseHeaders,
   });
+}
+
+function looksLikeDomainKey(value: string): boolean {
+  return value.startsWith("domain_pk_") || value.startsWith("domain_sk_");
+}
+
+function looksLikeProjectScopedKey(value: string): boolean {
+  return value.startsWith("sk-proj-");
 }
 
 async function safeParseJson<T>(req: Request): Promise<T | null> {
