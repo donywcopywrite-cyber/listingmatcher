@@ -23,11 +23,13 @@ export async function POST(request: Request): Promise<Response> {
   }
   let sessionCookie: string | null = null;
   try {
-    const openaiApiKey = process.env.OPENAI_API_KEY?.trim();
-    if (!openaiApiKey) {
+    const resolvedApiKey = resolveOpenAIApiKey();
+
+    if (!resolvedApiKey) {
       return new Response(
         JSON.stringify({
-          error: "Missing OPENAI_API_KEY environment variable",
+          error:
+            "Missing OpenAI API key. Set OPENAI_API_KEY or OPENAI_DOMAIN_SECRET_KEY with a valid server-side key.",
         }),
         {
           status: 500,
@@ -36,11 +38,13 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
+    const { key: openaiApiKey, source: openaiKeySource } = resolvedApiKey;
+
     if (looksLikeDomainPublicKey(openaiApiKey)) {
       return buildJsonResponse(
         {
           error:
-            "OPENAI_API_KEY is set to a domain public key. Move this value to NEXT_PUBLIC_OPENAI_DOMAIN_PUBLIC_KEY and configure a server-side API key (starts with sk-, sk-proj-, or domain_sk-) instead.",
+            `${openaiKeySource} is set to a domain public key. Move this value to NEXT_PUBLIC_OPENAI_DOMAIN_PUBLIC_KEY and configure a server-side API key (starts with sk-, sk-proj-, or domain_sk-) instead.`,
         },
         400,
         { "Content-Type": "application/json" },
@@ -54,7 +58,7 @@ export async function POST(request: Request): Promise<Response> {
       return buildJsonResponse(
         {
           error:
-            "OPENAI_API_KEY is project-scoped. Set OPENAI_PROJECT_ID to the corresponding project identifier to authenticate.",
+            `${openaiKeySource} is project-scoped. Set OPENAI_PROJECT_ID to the corresponding project identifier to authenticate.`,
         },
         500,
         { "Content-Type": "application/json" },
@@ -256,6 +260,56 @@ function looksLikeDomainPublicKey(value: string): boolean {
 
 function looksLikeProjectScopedKey(value: string): boolean {
   return value.startsWith("sk-proj-");
+}
+
+type ApiKeyEnvVar =
+  | "OPENAI_API_KEY"
+  | "OPENAI_DOMAIN_SECRET_KEY"
+  | "OPENAI_SECRET_KEY";
+
+const API_KEY_ENV_PRIORITY: readonly ApiKeyEnvVar[] = [
+  "OPENAI_API_KEY",
+  "OPENAI_DOMAIN_SECRET_KEY",
+  "OPENAI_SECRET_KEY",
+];
+
+interface ResolvedOpenAIApiKey {
+  key: string;
+  source: ApiKeyEnvVar;
+}
+
+function resolveOpenAIApiKey(): ResolvedOpenAIApiKey | null {
+  let selected: ResolvedOpenAIApiKey | null = null;
+
+  for (const envVar of API_KEY_ENV_PRIORITY) {
+    const candidate = process.env[envVar];
+    const trimmed = candidate?.trim();
+
+    if (!trimmed) {
+      continue;
+    }
+
+    if (!selected) {
+      selected = { key: trimmed, source: envVar };
+      continue;
+    }
+
+    if (selected.key === trimmed) {
+      continue;
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(
+        "[create-session] Multiple OpenAI API keys detected; prioritising",
+        {
+          preferred: selected.source,
+          ignored: envVar,
+        }
+      );
+    }
+  }
+
+  return selected;
 }
 
 async function safeParseJson<T>(req: Request): Promise<T | null> {
