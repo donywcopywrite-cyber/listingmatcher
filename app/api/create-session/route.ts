@@ -1,4 +1,5 @@
 import { WORKFLOW_ID } from "@/lib/config";
+import { resolveOpenAICredentials } from "@/lib/openai";
 
 export const runtime = "edge";
 
@@ -23,29 +24,18 @@ export async function POST(request: Request): Promise<Response> {
   }
   let sessionCookie: string | null = null;
   try {
-    const openaiApiKey = process.env.OPENAI_API_KEY?.trim();
-    if (!openaiApiKey) {
-      return new Response(
-        JSON.stringify({
-          error: "Missing OPENAI_API_KEY environment variable",
-        }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
 
-    if (looksLikeDomainKey(openaiApiKey)) {
-      return buildJsonResponse(
         {
-          error:
-            "OPENAI_API_KEY is set to a domain allowlist key. Configure a server-side API key (starts with sk- or sk-proj-) instead.",
+          error: credentialResult.error.message,
+          reason: credentialResult.error.reason,
         },
-        400,
+        credentialResult.error.status,
         { "Content-Type": "application/json" },
         null
       );
+    }
+
+
     }
 
     const parsedBody = await safeParseJson<CreateSessionRequestBody>(request);
@@ -79,6 +69,7 @@ export async function POST(request: Request): Promise<Response> {
         "Content-Type": "application/json",
         Authorization: `Bearer ${openaiApiKey}`,
         "OpenAI-Beta": "chatkit_beta=v1",
+        ...(openaiProjectId ? { "OpenAI-Project": openaiProjectId } : {}),
       },
       body: JSON.stringify({
         workflow: { id: resolvedWorkflowId },
