@@ -36,11 +36,11 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
-    if (looksLikeDomainKey(openaiApiKey)) {
+    if (looksLikeDomainPublicKey(openaiApiKey)) {
       return buildJsonResponse(
         {
           error:
-            "OPENAI_API_KEY is set to a domain allowlist key. Configure a server-side API key (starts with sk- or sk-proj-) instead.",
+            "OPENAI_API_KEY is set to a domain public key. Move this value to NEXT_PUBLIC_OPENAI_DOMAIN_PUBLIC_KEY and configure a server-side API key (starts with sk-, sk-proj-, or domain_sk-) instead.",
         },
         400,
         { "Content-Type": "application/json" },
@@ -250,8 +250,8 @@ function buildJsonResponse(
   });
 }
 
-function looksLikeDomainKey(value: string): boolean {
-  return value.startsWith("domain_pk_") || value.startsWith("domain_sk_");
+function looksLikeDomainPublicKey(value: string): boolean {
+  return value.startsWith("domain_pk_");
 }
 
 function looksLikeProjectScopedKey(value: string): boolean {
