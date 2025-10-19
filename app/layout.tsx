@@ -15,6 +15,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* OpenAI ChatKit domain allowlist public key */}
+        <meta
+          name="openai-domain-public-key"
+          content={
+            process.env.NEXT_PUBLIC_OPENAI_DOMAIN_PUBLIC_KEY ??
+            "domain_pk_68f46d3d37e881908894d01b7f604e7c0ea25b410b244d9c"
+          }
+        />
         <Script
           src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
           strategy="beforeInteractive"
